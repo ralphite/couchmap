@@ -1,21 +1,19 @@
-import datetime, urllib2, re
+#!/usr/bin/env python
+
+import sys, datetime, urllib2, re, traceback
 from BeautifulSoup import BeautifulSoup
-import logging, traceback
-from sqlalchemy import create_engine, Table, Column, Integer, String, \
-	MetaData, ForeignKey, DateTime, select
+from sqlalchemy import *
 
 # Settings
-START_URL = "http://www.couchsurfing.org/people/itim/"
-# LOGGER = {}
+START_URL = "http://www.couchsurfing.org/people/itim"
 
 # DB
 class CrawlDB:
-	"""docstring for CrawlDB"""
 	def __init__(self):
 		self.connected = False
 
 	def connect(self):
-		self.engine = create_engine('sqlite:///CrawlDB/Crawler')
+		self.engine = create_engine('sqlite:///cs.db')
 		self.connection = self.engine.connect()
 		self.connected = True if self.connection else False
 		self.metadata = MetaData()
@@ -52,7 +50,7 @@ class CrawlDB:
 			return False
 		if len(urls) == 0:
 			return True
-		args = [{'address':u.decode("utf8")} for u in urls]
+		args = [{'address':u} for u in urls]
 		result = self.connection.execute(self.queue_table.insert(), args)
 		if result:
 			return True
@@ -77,7 +75,18 @@ class CrawlDB:
 			return result[0][1]
 		return False
 
-	def checkCrawled(self, url):
+	def isInQueue(self, url):
+		s = select([self.queue_table]).where(
+			self.queue_table.c.address == url.decode("utf8"))
+		result = self.connection.execute(s)
+		if len(result.fetchall()) > 0:
+			result.close()
+			return True
+		else:
+			result.close()
+			return False
+
+	def hasCrawled(self, url):
 		s = select([self.crawl_table]).where(
 			self.crawl_table.c.address == url.decode("utf8"))
 		result = self.connection.execute(s)
@@ -95,7 +104,7 @@ class CrawlDB:
 		try:
 			result = self.connection.execute(self.crawl_table.insert().values(
 				address = unicode(data['address']), 
-				http_status = data['status'],
+				http_status = data['http_status'],
 				title = unicode(data['title']), 
 				size = data['size']))
 		except UnicodeDecodeError:
@@ -143,7 +152,7 @@ def parseHtml(html):
 		data['title'] = bs.title.text
 		# size is the length of the html string
 		data['size'] = len(str(bs))
-		data['member_name'] = bs.findAll('table')[5].findAll('tr')[8].td.text
+		#data['member_name'] = bs.findAll('table')[5].findAll('tr')[8].td.text
 		cac = re.sub(r'<[^>]*>', ' ', str(bs.findAll('table')[2].findAll('tr')[0].td.a))
 		data['country'], data['area'], data['city'] = cac.strip().split(' ')
 		data['location'] = bs.findAll('table')[2].findAll('tr')[0].td.a.attrs[2][1].split('@')[1]
@@ -152,10 +161,12 @@ def parseHtml(html):
 		r = re.compile(r'href="/people/([^/]*)/')
 		a = r.findall(str(bs))
 		a = getUniqArray(a)
-		data['urls'] = ["http://www.couchsurfing.org/people/" + i for i in a if not i == data['member_name']]
+		data['urls'] = ["http://www.couchsurfing.org/people/" + i for i in a]
+		return data
 	except Exception:
 		traceback.print_exc()
-
+		return None
+	
 def getUniqArray(seq):
     seen = set()
     seen_add = seen.add
@@ -165,12 +176,15 @@ def getUniqArray(seq):
 def crawl():
 	cdb = CrawlDB()
 	cdb.connect()
-	cdb.enqueue(START_URL)
+	cdb.enqueue([START_URL])
 
 	while True:
 		url = cdb.dequeue()
 		if url is False:
 			break
+		if cdb.hasCrawled(url):
+			continue
+		print url
 
 		status = 0
 		req = urllib2.Request(str(url))
@@ -189,13 +203,21 @@ def crawl():
 		html = request.read()
 
 		data = parseHtml(html)
-		data['address'] = url
-		data['http_status'] = status
 
-		cdb.enqueue([u for u in data.urls if cdb.checkCrawled(u)])
+		if data is None:
+			continue
 
-		cdb.addProfile(data)
+		try:	
+			data['address'] = url
+			data['http_status'] = status
+			data['member_name'] = url.split('/')[-1]
 
+			cdb.enqueue([u for u in data['urls'] if (not cdb.isInQueue(u)) and (not cdb.hasCrawled(u)) and u != START_URL])
+
+			cdb.addProfile(data)
+		except Exception:
+			traceback.print_exc()
+			continue
 
 if __name__ == '__main__':
 	try:
