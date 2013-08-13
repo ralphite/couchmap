@@ -1,19 +1,19 @@
-import urllib, urllib2
-from datetime import datetime
+import datetime, urllib2, re
 from BeautifulSoup import BeautifulSoup
-import logging
+import logging, traceback
 from sqlalchemy import create_engine, Table, Column, Integer, String, \
 	MetaData, ForeignKey, DateTime, select
 
 # Settings
 START_URL = "http://www.couchsurfing.org/people/itim/"
-LOGGER = {}
+# LOGGER = {}
 
 # DB
 class CrawlDB:
 	"""docstring for CrawlDB"""
 	def __init__(self):
 		self.connected = False
+
 	def connect(self):
 		self.engine = create_engine('sqlite:///CrawlDB/Crawler')
 		self.connection = self.engine.connect()
@@ -22,26 +22,26 @@ class CrawlDB:
 
 		# Define the tables
 		self.queue_table = Table('queue', self.metadata,
-			Column('id', Integer, primary_key=True),
-			Column('address', String, nullable=False),
-			Column('added', DateTime, nullable=False, default=datetime.now())
+			Column('id', Integer, primary_key = True),
+			Column('address', String, nullable = False),
+			Column('added', DateTime, nullable = False, default = datetime.datetime.now())
 		)
 		self.crawl_table = Table('crawl', self.metadata,
-			Column('id', Integer, primary_key=True),
-			Column('address', String, nullable=False),
-			Column('http_status', String, nullable=False),
-			Column('title', String, nullable=True),
-			Column('size', Integer, nullable=True),
+			Column('id', Integer, primary_key = True),
+			Column('address', String, nullable = False),
+			Column('http_status', String, nullable = False),
+			Column('title', String, nullable = True),
+			Column('size', Integer, nullable = True),
 		)
 		self.profile_table = Table('profile', self.metadata,
-			Column('id', Integer, primary_key=True),
-			Column('member_name', String, nullable=True),
-			Column('country', String, nullable=True),
-			Column('area', String, nullable=True),
-			Column('city', String, nullable=True),
-			Column('location', String, nullable=True),
-			Column('refs_count', Integer, nullable=True),
-			Column('friends_count', Integer, nullable=True),
+			Column('id', Integer, primary_key = True),
+			Column('member_name', String, nullable = True),
+			Column('country', String, nullable = True),
+			Column('area', String, nullable = True),
+			Column('city', String, nullable = True),
+			Column('location', String, nullable = True),
+			Column('refs_count', Integer, nullable = True),
+			Column('friends_count', Integer, nullable = True),
 		)
 		
 		# Create the tables
@@ -61,7 +61,7 @@ class CrawlDB:
 	def dequeue(self):
 		if not self.connected:
 			return False
-		# Get the first thing in the queue
+		# Get the first url in the queue
 		s = select([self.queue_table]).limit(1)
 		res = self.connection.execute(s)
 		result = res.fetchall()
@@ -104,7 +104,7 @@ class CrawlDB:
 			return False
 		# Add profile details
 		try:
-			rs = self.connection.execute(self.profile_table.insert().values(
+			self.connection.execute(self.profile_table.insert().values(
 				member_name = data['member_name'],
 				country = data['country'],
 				area = data['area'],
@@ -122,5 +122,85 @@ class CrawlDB:
 		self.connection.close()
 
 # Page Parsing
+# should return data = 
+# {
+#   title: string, title of the page 
+#   size: int, size of the html
+#   member_name: string,
+#   country: string,
+#   area: string,
+#   city: string,
+#   location: string,
+#   refs_count: int,
+#   friends_count: int
+#	urls: [], list of urls of profile page
+# }
+def parseHtml(html):
+	bs = BeautifulSoup(html)
+	data = {}
+
+	try:
+		data['title'] = bs.title.text
+		# size is the length of the html string
+		data['size'] = len(str(bs))
+		data['member_name'] = bs.findAll('table')[5].findAll('tr')[8].td.text
+		cac = re.sub(r'<[^>]*>', ' ', str(bs.findAll('table')[2].findAll('tr')[0].td.a))
+		data['country'], data['area'], data['city'] = cac.strip().split(' ')
+		data['location'] = bs.findAll('table')[2].findAll('tr')[0].td.a.attrs[2][1].split('@')[1]
+		data['refs_count'] = bs.find(id='total_ref').span.text.split('(')[1].split(')')[0]
+		data['friends_count'] = bs.find(id='friends').text.split('(')[1].split(')')[0]
+		r = re.compile(r'href="/people/([^/]*)/')
+		a = r.findall(str(bs))
+		a = getUniqArray(a)
+		data['urls'] = ["http://www.couchsurfing.org/people/" + i for i in a if not i == data['member_name']]
+	except Exception:
+		traceback.print_exc()
+
+def getUniqArray(seq):
+    seen = set()
+    seen_add = seen.add
+    return [ x for x in seq if x not in seen and not seen_add(x)]
 
 # Crawler
+def crawl():
+	cdb = CrawlDB()
+	cdb.connect()
+	cdb.enqueue(START_URL)
+
+	while True:
+		url = cdb.dequeue()
+		if url is False:
+			break
+
+		status = 0
+		req = urllib2.Request(str(url))
+		req.add_header('User-Agent', 'couchmap 0.1')
+
+		request = None
+
+		try:
+			request = urllib2.urlopen(req)
+		except urllib2.URLError, e:
+			continue
+		except urllib2.HTTPError, e:
+			status = e.code
+		if status == 0:
+			status = 200
+		html = request.read()
+
+		data = parseHtml(html)
+		data['address'] = url
+		data['http_status'] = status
+
+		cdb.enqueue([u for u in data.urls if cdb.checkCrawled(u)])
+
+		cdb.addProfile(data)
+
+
+if __name__ == '__main__':
+	try:
+		crawl()
+	except KeyboardInterrupt:
+		sys.exit()
+	except Exception:
+		traceback.print_exc()
