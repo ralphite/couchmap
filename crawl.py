@@ -150,6 +150,9 @@ def parseHtml(html):
 	data = {}
 
 	try:
+		if bs.findAll("td")[0].text.startswith("This member has chosen to show"):
+			print "This is profile is not allowed to view without login."
+			return None
 		data['title'] = bs.title.text
 		# size is the length of the html string
 		data['size'] = len(str(bs))
