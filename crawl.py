@@ -136,7 +136,6 @@ class CrawlDB:
 # {
 #   title: string, title of the page
 #   size: int, size of the html
-#   member_name: string,
 #   country: string,
 #   area: string,
 #   city: string,
@@ -151,8 +150,10 @@ def parseHtml(html):
 
 	try:
 		if bs.findAll("td")[0].text.startswith("This member has chosen to show"):
-			print "This is profile is not allowed to view without login."
-			return None
+			print "--- Profile not allowed to view without login ---"
+			return {"title": '', "size": 0, "country":"", "area": "", "city":"", \
+			"location":"", "refs_count":0, "friends_count":0, "urls":[]}
+
 		data['title'] = bs.title.text
 		# size is the length of the html string
 		data['size'] = len(str(bs))
@@ -221,7 +222,8 @@ def crawl():
 			data['http_status'] = status
 			data['member_name'] = url.split('/')[-1]
 
-			cdb.enqueue([u for u in data['urls'] if (not cdb.isInQueue(u)) and (not cdb.hasCrawled(u)) and u != START_URL])
+			cdb.enqueue([u for u in data['urls'] if (not cdb.isInQueue(u)) and \
+				(not cdb.hasCrawled(u)) and u != START_URL])
 
 			cdb.addProfile(data)
 		except Exception:
