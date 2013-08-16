@@ -157,7 +157,6 @@ def parseHtml(html):
 		data['title'] = bs.title.text
 		# size is the length of the html string
 		data['size'] = len(str(bs))
-		#data['member_name'] = bs.findAll('table')[5].findAll('tr')[8].td.text
 		cac = re.sub(r'<[^>]*>', ':', str(bs.findAll('table')[2].findAll('tr')[0].td.a))
 		temparr = cac.strip().split(':')
 		if temparr[0] == '':
@@ -183,10 +182,10 @@ def getUniqArray(seq):
     return [ x for x in seq if x not in seen and not seen_add(x)]
 
 # Crawler
-def crawl():
+def crawl(start_url):
 	cdb = CrawlDB()
 	cdb.connect()
-	cdb.enqueue([START_URL])
+	cdb.enqueue([start_url])
 
 	while True:
 		url = cdb.dequeue()
@@ -232,7 +231,7 @@ def crawl():
 
 if __name__ == '__main__':
 	try:
-		crawl()
+		crawl(START_URL)
 	except KeyboardInterrupt:
 		sys.exit()
 	except Exception:
