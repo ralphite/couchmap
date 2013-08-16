@@ -5,6 +5,7 @@ from BeautifulSoup import BeautifulSoup
 from sqlalchemy import *
 
 # Settings
+# start point on cs website to crawl
 START_URL = "http://www.couchsurfing.org/people/itim"
 
 # DB
@@ -41,7 +42,7 @@ class CrawlDB:
 			Column('refs_count', Integer, nullable = True),
 			Column('friends_count', Integer, nullable = True),
 		)
-		
+
 		# Create the tables
 		self.metadata.create_all(self.engine)
 
@@ -103,9 +104,9 @@ class CrawlDB:
 		# Add the page to the crawl table
 		try:
 			result = self.connection.execute(self.crawl_table.insert().values(
-				address = unicode(data['address']), 
+				address = unicode(data['address']),
 				http_status = data['http_status'],
-				title = unicode(data['title']), 
+				title = unicode(data['title']),
 				size = data['size']))
 		except UnicodeDecodeError:
 			return False
@@ -131,9 +132,9 @@ class CrawlDB:
 		self.connection.close()
 
 # Page Parsing
-# should return data = 
+# should return data =
 # {
-#   title: string, title of the page 
+#   title: string, title of the page
 #   size: int, size of the html
 #   member_name: string,
 #   country: string,
@@ -153,8 +154,13 @@ def parseHtml(html):
 		# size is the length of the html string
 		data['size'] = len(str(bs))
 		#data['member_name'] = bs.findAll('table')[5].findAll('tr')[8].td.text
-		cac = re.sub(r'<[^>]*>', ' ', str(bs.findAll('table')[2].findAll('tr')[0].td.a))
-		data['country'], data['area'], data['city'] = cac.strip().split(' ')
+		cac = re.sub(r'<[^>]*>', ':', str(bs.findAll('table')[2].findAll('tr')[0].td.a))
+		temparr = cac.strip().split(':')
+		if temparr[0] == '':
+			temparr = temparr[1:]
+		if temparr[-1] == '':
+			temparr = temparr[:-1]
+		data['country'], data['area'], data['city'] = temparr
 		data['location'] = bs.findAll('table')[2].findAll('tr')[0].td.a.attrs[2][1].split('@')[1]
 		data['refs_count'] = bs.find(id='total_ref').span.text.split('(')[1].split(')')[0]
 		data['friends_count'] = bs.find(id='friends').text.split('(')[1].split(')')[0]
@@ -166,7 +172,7 @@ def parseHtml(html):
 	except Exception:
 		traceback.print_exc()
 		return None
-	
+
 def getUniqArray(seq):
     seen = set()
     seen_add = seen.add
@@ -207,7 +213,7 @@ def crawl():
 		if data is None:
 			continue
 
-		try:	
+		try:
 			data['address'] = url
 			data['http_status'] = status
 			data['member_name'] = url.split('/')[-1]
