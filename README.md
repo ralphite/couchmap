@@ -17,9 +17,9 @@ Google map with CS host count in 3 levels - city, area and county.
 
 ### Keywords
 
-- `couchsurfing`
+- couchsurfing
 - `Node.js`
-- `Python web scraping`
+- Python web scraping
 - `BeautifulSoup`
 - `Google Map`
 - `jQuery`
