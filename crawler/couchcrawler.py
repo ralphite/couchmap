@@ -4,13 +4,13 @@ import sys, urllib2, re, traceback
 
 from sqlalchemy import *
 
-from settings import START_URL
+import settings
 from db import CrawlDB
 from parse import parseHtml
 
 # Crawler
 def crawl(start_url):
-	cdb = CrawlDB()
+	cdb = CrawlDB(settings.DB_FILE)
 	cdb.connect()
 	cdb.enqueue([start_url])
 
@@ -49,7 +49,7 @@ def crawl(start_url):
 			data['member_name'] = url.split('/')[-1]
 
 			cdb.enqueue([u for u in data['urls'] if (not cdb.isInQueue(u)) and \
-				(not cdb.hasCrawled(u)) and u != START_URL])
+				(not cdb.hasCrawled(u)) and u != settings.START_URL])
 
 			cdb.addProfile(data)
 		except Exception:
@@ -58,7 +58,7 @@ def crawl(start_url):
 
 if __name__ == '__main__':
 	try:
-		crawl(START_URL)
+		crawl(settings.START_URL)
 	except KeyboardInterrupt:
 		sys.exit()
 	except Exception:

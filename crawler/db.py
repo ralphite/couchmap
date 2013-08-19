@@ -3,11 +3,12 @@ import datetime
 
 # DB
 class CrawlDB:
-	def __init__(self):
+	def __init__(self, dbFile):
 		self.connected = False
+		self.dbFile = dbFile
 
 	def connect(self):
-		self.engine = create_engine('sqlite:///cs.db')
+		self.engine = create_engine('sqlite:///' + self.dbFile)
 		self.connection = self.engine.connect()
 		self.connected = True if self.connection else False
 		self.metadata = MetaData()
