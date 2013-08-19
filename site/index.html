@@ -33,21 +33,9 @@
 			  marker:{
 			    values: [
 			      [49.28952958093682, 6.152559438984804],
-			      {
-			        latLng:[44.28952958093682, 6.152559438984804],
-			        options:{
-			          icon: "http://maps.google.com/mapfiles/marker_green.png"
-			        }
-			      },
+			      [44.28952958093682, 6.152559438984804],
 			      [49.28952958093682, -1.1501188139848408],
-			      {
-			        latLng:[44.28952958093682, -1.1501188139848408],
-			        events:{
-			          click:function(){
-			            alert("I'm the last one, and i have my own click event");
-			          }
-			        }
-			      }
+			      [44.28952958093682, -1.1501188139848408]
 			    ],
 			    events:{ // events trigged by markers 
 			      click: function(){
@@ -56,15 +44,6 @@
 			    },
 			    cluster:{
 			      radius: 100,
-
-			      events:{ // events trigged by clusters 
-			        mouseover: function(cluster){
-			          $(cluster.main.getDOMElement()).css("border", "1px solid red");
-			        },
-			        mouseout: function(cluster){
-			          $(cluster.main.getDOMElement()).css("border", "0px");
-			        }
-			      },
 			      0: {
 			        content: "<div class='cluster cluster-1'>CLUSTER_COUNT</div>",
 			        width: 53,
