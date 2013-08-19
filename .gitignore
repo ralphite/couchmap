@@ -1,3 +1,4 @@
+./crawler/cs.db
 *.py[cod]
 
 # C extensions
