@@ -1,13 +1,23 @@
 from sqlalchemy import *
 import datetime
 
-# DB
 class CrawlDB:
+"""DB class for the crawled data.
+There are 3 tables. queue table for the urls to crwal.
+crwal table for the already parsed urls. And profile
+table for the parsed data.
+
+profile table might have incomplete data of the profiles
+which are not allowed to view without login (about 1/4 of
+the total profiles crawled)."""
+
+	# dbFile is the name of sqlite db name
 	def __init__(self, dbFile):
 		self.connected = False
 		self.dbFile = dbFile
 
 	def connect(self):
+		# the sqlite3 db file will be created in the same folder
 		self.engine = create_engine('sqlite:///' + self.dbFile)
 		self.connection = self.engine.connect()
 		self.connected = True if self.connection else False
@@ -41,6 +51,7 @@ class CrawlDB:
 		self.metadata.create_all(self.engine)
 
 	def enqueue(self, urls):
+	"""insert a list of profile urls to parse into the queue table"""
 		if not self.connected:
 			return False
 		if len(urls) == 0:
@@ -52,6 +63,7 @@ class CrawlDB:
 		return False
 
 	def dequeue(self):
+	"""pop up the first url in queue table and delete it from table"""
 		if not self.connected:
 			return False
 		# Get the first url in the queue
@@ -71,6 +83,7 @@ class CrawlDB:
 		return False
 
 	def isInQueue(self, url):
+	"""Check if url already in queue table"""
 		s = select([self.queue_table]).where(
 			self.queue_table.c.address == url.decode("utf8"))
 		result = self.connection.execute(s)
@@ -82,6 +95,7 @@ class CrawlDB:
 			return False
 
 	def hasCrawled(self, url):
+	"""Check if url already in crawl table"""
 		s = select([self.crawl_table]).where(
 			self.crawl_table.c.address == url.decode("utf8"))
 		result = self.connection.execute(s)
@@ -93,6 +107,7 @@ class CrawlDB:
 			return False
 
 	def addProfile(self, data):
+	"""insert a record to crawl table and profile table with info from data dict."""
 		if not self.connected:
 			return False
 		# Add the page to the crawl table
